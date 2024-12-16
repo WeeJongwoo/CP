@@ -60,4 +60,7 @@ public:
 	virtual UAnimMontage* GetAttackMontage() = 0;
 	virtual UCharacterMovementComponent* GetMonsterMovement() = 0;
 	virtual UAnimInstance* GetMonsterAnimInstnce() = 0;
+
+	virtual uint8 GetMinAttakType() = 0;
+	virtual uint8 GetMaxAttakType() = 0;
 };

@@ -26,15 +26,14 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 	if (AIMonster == nullptr)
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Attack: AIPawn Is Not Monster"));
+		return EBTNodeResult::Failed;
 	}
 //Set Attack Type
-	uint8 MinAttackType = static_cast<uint8>(EAttackType::Attack1);
-	uint8 MaxAttackType = static_cast<uint8>(EAttackType::Attack5);
+	uint8 MinAttackType = AIMonster->GetMinAttakType();
+	uint8 MaxAttackType = AIMonster->GetMaxAttakType();
 
 	uint8 AttackTypeInt = FMath::RandRange(MinAttackType, MaxAttackType);
 	UE_LOG(LogTemp, Log, TEXT("%d"), AttackTypeInt);
-
-	EAttackType AttackType = static_cast<EAttackType>(AttackTypeInt);
 
 //Play Attack Anim
 	AIMonster->GetMonsterMovement()->SetMovementMode(EMovementMode::MOVE_None);
@@ -57,6 +56,7 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 
 	AnimInstance->Montage_Play(AttackMontage, AttackSpeed);
 	AnimInstance->Montage_JumpToSection(*AttackSection, AttackMontage);
+
 //Set End Delegate
 	FOnMontageEnded AttackEndElegate;
 	AttackEndElegate.BindLambda([this, AIMonster, &OwnerComp](UAnimMontage* InAnimMontage, bool bInterrupted) {
