@@ -13,7 +13,7 @@ ACPGameModeBase::ACPGameModeBase()
 		DefaultPawnClass = PlayerPawnClassRef.Class;
 	}
 
-	static ConstructorHelpers::FClassFinder<APlayerController> PlayerControllerClassRef(TEXT("/Game/GameMode/BP_CPController.BP_CPController"));
+	static ConstructorHelpers::FClassFinder<APlayerController> PlayerControllerClassRef(TEXT("/Game/GameMode/BP_CPController.BP_CPController_C"));
 	if (PlayerControllerClassRef.Class)
 	{
 		PlayerControllerClass = PlayerControllerClassRef.Class;
