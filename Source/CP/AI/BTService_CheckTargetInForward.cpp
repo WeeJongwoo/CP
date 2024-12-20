@@ -29,11 +29,11 @@ void UBTService_CheckTargetInForward::TickNode(UBehaviorTreeComponent& OwnerComp
     }
 
     FVector TargetLocation = Target->GetActorLocation();
-    FVector AIPawntoTarget = (TargetLocation - AIPawn->GetActorLocation()).GetSafeNormal();
+    FVector AIPawntoTarget = (TargetLocation - AIPawn->GetActorLocation()).GetSafeNormal2D();
 
     FRotator DesiredRotation = (TargetLocation - AIPawn->GetActorLocation()).Rotation();
 
-    float DotProduct = FVector::DotProduct(AIPawn->GetActorForwardVector(), AIPawntoTarget);
+    float DotProduct = FVector::DotProduct(AIPawn->GetActorForwardVector().GetSafeNormal2D(), AIPawntoTarget);
 
     float FOVAngleRadian = FMath::DegreesToRadians(FOVAngle);
 

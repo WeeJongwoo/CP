@@ -5,13 +5,14 @@
 #include "CoreMinimal.h"
 #include "Character/CPCharacterBase.h"
 #include "InputActionValue.h"
+#include "Interface/CPBattleInterface.h"
 #include "CPCharacterPlayer.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class CP_API ACPCharacterPlayer : public ACPCharacterBase
+class CP_API ACPCharacterPlayer : public ACPCharacterBase, public ICPBattleInterface
 {
 	GENERATED_BODY()
 	
@@ -20,6 +21,12 @@ public:
 
 	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
+
+	virtual void TakeDamage(float Damage, EHitReactionType HitReactionType, FVector AttackDir) override;
+	virtual void Attack(FName SocketName, float AttackRange) override;
+	virtual UCPStatComponent* GetStatComponent() override;
+
+	virtual void PostInitializeComponents() override;
 
 protected:
 
@@ -46,8 +53,6 @@ protected:
 	void Attack();
 	void AttackEnded(class UAnimMontage* Montage, bool IsProperlyEnded);
 
-
-
 // Camera
 	UPROPERTY(EditAnywhere, Category = Camera, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class USpringArmComponent> CameraBoom;
@@ -60,6 +65,21 @@ protected:
 
 	float AttackRate;
 
+	float HitDelay;
+	bool bCanHit;
+
+	FTimerHandle HitDelayTimer;
+
 	UPROPERTY(EditAnywhere, Category = Anim)
 	TObjectPtr<class UAnimMontage> AttackMontage;
+
+	void SetCanHit();
+
+//stat
+	UPROPERTY(EditAnywhere, Category = Stat)
+	TObjectPtr<class UCPStatComponent> StatComponent;
+
+	void Dead();
+
+	void HitReaction(EHitReactionType HitReactionType, FVector AttackDir);
 };

@@ -21,6 +21,8 @@ public:
 	
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
+	void SetDead(bool IsDead);
+
 protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
@@ -49,4 +51,7 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
 	float JunpingThreshould;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Character)
+	bool bIsDead;
 };

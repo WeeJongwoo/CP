@@ -6,10 +6,14 @@
 #include "GameFramework/Character.h"
 #include "Interface/CPMonsterAIInterface.h"
 #include "Interface/CPAttackTrigger.h"
+#include "Interface/CPBattleInterface.h"
+#include "Component/CPStatComponent.h"
 #include "CPCharacterMonster.generated.h"
 
+DECLARE_MULTICAST_DELEGATE(MonsterDeadDelegate)
+
 UCLASS()
-class CP_API ACPCharacterMonster : public ACharacter, public ICPMonsterAIInterface, public ICPAttackTrigger
+class CP_API ACPCharacterMonster : public ACharacter, public ICPMonsterAIInterface, public ICPAttackTrigger, public ICPBattleInterface
 {
 	GENERATED_BODY()
 
@@ -20,6 +24,7 @@ public:
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
+
 
 public:	
 	// Called every frame
@@ -41,8 +46,8 @@ public:
 	virtual uint8 GetMinAttakType() override;
 	virtual uint8 GetMaxAttakType() override;
 
-	virtual void AttackTriggerOn(AttackTriggerType InAttackTriggerType) override;
-	virtual void AttackTriggerOff(AttackTriggerType InAttackTriggerType) override;
+	virtual void AttackTriggerOn(EAttackTriggerType InAttackTriggerType) override;
+	virtual void AttackTriggerOff(EAttackTriggerType InAttackTriggerType) override;
 
 	UFUNCTION()
 	void LHandAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
@@ -55,6 +60,12 @@ public:
 	UFUNCTION()
 	void TailAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult);
 	
+	virtual void TakeDamage(float Damage, EHitReactionType HitReactionType, FVector AttackDir) override;
+	virtual void Attack(FName SocketName, float AttackRange) override;
+	virtual UCPStatComponent* GetStatComponent() override;
+
+	MonsterDeadDelegate DeadDelegate;
+
 protected:
 
 	UPROPERTY(EditAnywhere)
@@ -77,4 +88,13 @@ protected:
 	UPROPERTY(EditAnywhere)
 	TObjectPtr<class UBoxComponent> TailTrigger;
 
+	UPROPERTY(EditAnywhere, Category = Stat)
+	TObjectPtr<class UCPStatComponent> StatComponent;
+
+	float HitDelay;
+	bool bCanHit;
+
+	FTimerHandle HitDelayTimer;
+
+	void Dead();
 };

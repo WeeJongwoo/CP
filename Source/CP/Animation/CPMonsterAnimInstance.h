@@ -3,19 +3,18 @@
 #pragma once
 
 #include "CoreMinimal.h"
-#include "GameFramework/GameModeBase.h"
-#include "CPGameModeBase.generated.h"
+#include "Animation/AnimInstance.h"
+#include "CPMonsterAnimInstance.generated.h"
 
 /**
  * 
  */
 UCLASS()
-class CP_API ACPGameModeBase : public AGameModeBase
+class CP_API UCPMonsterAnimInstance : public UAnimInstance
 {
 	GENERATED_BODY()
 	
-public:
-
-	ACPGameModeBase();
-
+	
+	
+	
 };

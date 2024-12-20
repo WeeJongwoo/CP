@@ -9,6 +9,8 @@ UCPPlayerAnimInstance::UCPPlayerAnimInstance()
 {
 	MovingThreshould = 3.f;
 	JunpingThreshould = 100.f;
+	bIsDead = false;
+
 }
 
 void UCPPlayerAnimInstance::NativeInitializeAnimation()
@@ -34,4 +36,9 @@ void UCPPlayerAnimInstance::NativeUpdateAnimation(float DeltaSeconds)
 		bIsJumping = (Velocity.Z > JunpingThreshould) & bIsFalling;
 
 	}
+}
+
+void UCPPlayerAnimInstance::SetDead(bool IsDead)
+{
+	bIsDead = IsDead;
 }

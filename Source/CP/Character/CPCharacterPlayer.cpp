@@ -8,6 +8,10 @@
 #include "Camera/CameraComponent.h"
 #include "Animation/AnimMontage.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Component/CPStatComponent.h"
+#include "UI/CPPlayerHUD.h"
+#include "GameMode/CPPlayerController.h"
+#include "Instance/CPMonsterDelegateManager.h"
 
 
 ACPCharacterPlayer::ACPCharacterPlayer()
@@ -28,6 +32,11 @@ ACPCharacterPlayer::ACPCharacterPlayer()
 	Camera->FieldOfView = 80.0f;
 
 	AttackRate = 1.0f;
+
+	StatComponent = CreateDefaultSubobject<UCPStatComponent>(TEXT("StatComponent"));
+
+	bCanHit = true;
+	HitDelay = 0.2f;
 }
 
 void ACPCharacterPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -43,6 +52,44 @@ void ACPCharacterPlayer::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &ACPCharacterPlayer::Attack);
 }
 
+void ACPCharacterPlayer::TakeDamage(float Damage, EHitReactionType HitReactionType, FVector AttackDir)
+{
+	/*if (GetCharacterMovement()->MovementMode == EMovementMode::MOVE_None)
+	{
+		GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+	}*/
+
+	if (!bCanHit)
+	{
+		return;
+	}
+
+	StatComponent->SetCurrentHP(-Damage);
+	HitReaction(HitReactionType, AttackDir);
+
+	bCanHit = false;
+
+	GetWorld()->GetTimerManager().SetTimer(HitDelayTimer, this, &ACPCharacterPlayer::SetCanHit, HitDelay, false);
+}
+
+void ACPCharacterPlayer::Attack(FName SocketName, float AttackRange)
+{
+
+}
+
+UCPStatComponent* ACPCharacterPlayer::GetStatComponent()
+{
+	return StatComponent.Get();
+}
+
+void ACPCharacterPlayer::PostInitializeComponents()
+{
+	Super::PostInitializeComponents();
+
+	StatComponent->DeadEvent.BindUObject(this, &ACPCharacterPlayer::Dead);
+
+}
+
 void ACPCharacterPlayer::BeginPlay()
 {
 	Super::BeginPlay();
@@ -52,6 +99,22 @@ void ACPCharacterPlayer::BeginPlay()
 	{
 		Subsystem->AddMappingContext(DefaultMappingContext, 0);
 	}
+
+	ACPPlayerController* CPPlayerController = Cast<ACPPlayerController>(GetController());
+	if (CPPlayerController)
+	{
+		StatComponent->SetHPWidget(CPPlayerController->HUD.Get());
+		StatComponent->InitializeStat(100.0f, 10.0f);
+	}
+
+	UCPMonsterDelegateManager* MonsterDelegateManager = GetGameInstance<UCPMonsterDelegateManager>();
+	MonsterDelegateManager->SetPlayer(CPPlayerController);
+	MonsterDelegateManager->SetDelegate();
+
+	/*HUD->AddToViewport();
+
+	StatComponent->SetHPWidget(HUD.Get());
+	*/
 }
 
 void ACPCharacterPlayer::Move(const FInputActionValue& Value)
@@ -83,15 +146,63 @@ void ACPCharacterPlayer::Attack()
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 
 	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
-	AnimInstance->Montage_Play(AttackMontage, AttackRate);
+	if (!AnimInstance->Montage_IsPlaying(AttackMontage))
+	{
+		AnimInstance->Montage_Play(AttackMontage, AttackRate);
 
-
-	FOnMontageEnded AttackMontageEnded;
-	AttackMontageEnded.BindUObject(this, &ACPCharacterPlayer::AttackEnded);
-	AnimInstance->Montage_SetEndDelegate(AttackMontageEnded, AttackMontage);
+		FOnMontageEnded AttackMontageEnded;
+		AttackMontageEnded.BindUObject(this, &ACPCharacterPlayer::AttackEnded);
+		AnimInstance->Montage_SetEndDelegate(AttackMontageEnded, AttackMontage);
+	}
 }
 
 void ACPCharacterPlayer::AttackEnded(UAnimMontage* Montage, bool IsProperlyEnded)
 {
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+}
+
+void ACPCharacterPlayer::SetCanHit()
+{
+	bCanHit = true;
+	UE_LOG(LogTemp, Warning, TEXT("Can Hit"));
+}
+
+void ACPCharacterPlayer::Dead()
+{
+	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_None);
+}
+
+void ACPCharacterPlayer::HitReaction(EHitReactionType HitReactionType, FVector AttackDir)
+{
+	switch (HitReactionType)
+	{
+		case EHitReactionType::Flinch:
+		{
+
+			break;
+		}
+		case EHitReactionType::Knockback:
+		{
+			if (GetCharacterMovement()->MovementMode == EMovementMode::MOVE_Falling)
+			{
+				LaunchCharacter(AttackDir/4.0f, true, true);
+			}
+			else
+			{
+				LaunchCharacter(AttackDir, true, true);
+			}
+
+			
+			break;
+		}
+		case EHitReactionType::Downed:
+		{
+
+			break;
+		}
+		default:
+		{
+			break;
+		}
+	}
 }

@@ -2,6 +2,8 @@
 
 
 #include "GameMode/CPGameModeBase.h"
+#include "Kismet/GameplayStatics.h"
+#include "Monster/CPCharacterMonster.h"
 
 ACPGameModeBase::ACPGameModeBase()
 {
@@ -17,3 +19,4 @@ ACPGameModeBase::ACPGameModeBase()
 		PlayerControllerClass = PlayerControllerClassRef.Class;
 	}
 }
+

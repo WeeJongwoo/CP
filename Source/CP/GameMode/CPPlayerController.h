@@ -17,9 +17,16 @@ class CP_API ACPPlayerController : public APlayerController
 public:
 	ACPPlayerController();
 
+	UPROPERTY(VisibleAnywhere, Category = Stat)
+	TObjectPtr<class UCPPlayerHUD> HUD;
+
+	const class UCPPlayerHUD* GetHUD();
+
 protected:
 
 	virtual void BeginPlay() override;
-	
+
+
+	TSubclassOf<class UCPPlayerHUD> HUDClass;
 	
 };

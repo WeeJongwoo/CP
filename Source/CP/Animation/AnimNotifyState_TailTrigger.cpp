@@ -9,7 +9,7 @@ void UAnimNotifyState_TailTrigger::NotifyBegin(USkeletalMeshComponent* MeshComp,
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOn(AttackTriggerType::Tail);
+		AttackTriggerOwner->AttackTriggerOn(EAttackTriggerType::Tail);
 	}
 }
 
@@ -18,6 +18,6 @@ void UAnimNotifyState_TailTrigger::NotifyEnd(USkeletalMeshComponent* MeshComp, U
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOff(AttackTriggerType::Tail);
+		AttackTriggerOwner->AttackTriggerOff(EAttackTriggerType::Tail);
 	}
 }

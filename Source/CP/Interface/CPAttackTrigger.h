@@ -7,12 +7,14 @@
 
 #include "CPAttackTrigger.generated.h"
 
-enum class AttackTriggerType : uint8 {
+enum class EAttackTriggerType : uint8 {
 	LHand,
 	RHand,
 	LWing,
 	RWing,
-	Tail
+	Tail,
+
+	Weapon
 };
 
 // This class does not need to be modified.
@@ -32,6 +34,6 @@ class CP_API ICPAttackTrigger
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	
-	virtual void AttackTriggerOn(AttackTriggerType InAttackTriggerType) = 0;
-	virtual void AttackTriggerOff(AttackTriggerType InAttackTriggerType) = 0;
+	virtual void AttackTriggerOn(EAttackTriggerType InAttackTriggerType) = 0;
+	virtual void AttackTriggerOff(EAttackTriggerType InAttackTriggerType) = 0;
 };

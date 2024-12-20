@@ -9,7 +9,7 @@ void UAnimNotifyState_RHandTrigger::NotifyBegin(USkeletalMeshComponent* MeshComp
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOn(AttackTriggerType::RHand);
+		AttackTriggerOwner->AttackTriggerOn(EAttackTriggerType::RHand);
 	}
 }
 
@@ -18,6 +18,6 @@ void UAnimNotifyState_RHandTrigger::NotifyEnd(USkeletalMeshComponent* MeshComp, 
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOff(AttackTriggerType::RHand);
+		AttackTriggerOwner->AttackTriggerOff(EAttackTriggerType::RHand);
 	}
 }

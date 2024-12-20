@@ -47,7 +47,10 @@ void ACPAIController::StopAI()
 
 void ACPAIController::Tick(float DeltaTime)
 {
-	Blackboard->SetValueAsVector(TEXT("ForwardDirction"), GetPawn()->GetActorForwardVector());
+	if (GetPawn())
+	{
+		Blackboard->SetValueAsVector(TEXT("ForwardDirction"), GetPawn()->GetActorForwardVector());
+	}
 }
 
 void ACPAIController::OnPossess(APawn* InPawn)

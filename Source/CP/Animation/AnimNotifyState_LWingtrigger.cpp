@@ -9,7 +9,7 @@ void UAnimNotifyState_LWingTrigger::NotifyBegin(USkeletalMeshComponent* MeshComp
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOn(AttackTriggerType::LWing);
+		AttackTriggerOwner->AttackTriggerOn(EAttackTriggerType::LWing);
 	}
 }
 
@@ -18,6 +18,6 @@ void UAnimNotifyState_LWingTrigger::NotifyEnd(USkeletalMeshComponent* MeshComp, 
 	ICPAttackTrigger* AttackTriggerOwner = Cast<ICPAttackTrigger>(MeshComp->GetOwner());
 	if (AttackTriggerOwner)
 	{
-		AttackTriggerOwner->AttackTriggerOff(AttackTriggerType::LWing);
+		AttackTriggerOwner->AttackTriggerOff(EAttackTriggerType::LWing);
 	}
 }

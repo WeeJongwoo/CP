@@ -5,7 +5,12 @@
 #include "AI/CPAIController.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Components/BoxComponent.h"
-
+#include "Interface/CPBattleInterface.h"
+#include "CollisionQueryParams.h"
+#include "Engine/OverlapResult.h"
+#include "Components/CapsuleComponent.h"
+#include "Animation/CPPlayerAnimInstance.h"
+#include "Instance/CPMonsterDelegateManager.h"
 
 // Sets default values
 ACPCharacterMonster::ACPCharacterMonster()
@@ -23,13 +28,15 @@ ACPCharacterMonster::ACPCharacterMonster()
 		GetMesh()->SetSkeletalMesh(MonsterMesh.Object);
 	}
 
-	GetMesh()->SetRelativeLocationAndRotation(FVector(-60.0f, 0.0f, -100.0f), FRotator(0.0f, -90.0f, 0.0f));
+	GetMesh()->SetRelativeLocationAndRotation(FVector(-60.0f, 0.0f, -200.0f), FRotator(0.0f, -90.0f, 0.0f));
 
 	AIControllerClass = ACPAIController::StaticClass();
 	AutoPossessAI = EAutoPossessAI::PlacedInWorldOrSpawned;
 
 	GetCharacterMovement()->bOrientRotationToMovement = true;
 	GetCharacterMovement()->RotationRate = FRotator(0.f, 270.0f, 0.f);
+
+	GetCapsuleComponent()->SetCapsuleSize(120.0f, 200.0f);
 
 	AttackSpeed = 1.0f;
 
@@ -64,13 +71,22 @@ ACPCharacterMonster::ACPCharacterMonster()
 	LeftWingTrigger->SetHiddenInGame(false);
 	RightWingTrigger->SetHiddenInGame(false);
 	TailTrigger->SetHiddenInGame(false);
+
+	StatComponent = CreateDefaultSubobject<UCPStatComponent>(TEXT("StatComponent"));
+
+	HitDelay = 0.2f;
+	bCanHit = true;
 }
 
 // Called when the game starts or when spawned
 void ACPCharacterMonster::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
+	StatComponent->InitializeStat(100.0f, 10.0f);
+
+	UCPMonsterDelegateManager* DelegateManager = GetGameInstance<UCPMonsterDelegateManager>();
+	DelegateManager->SetMonster(this);
 }
 
 // Called every frame
@@ -111,12 +127,14 @@ void ACPCharacterMonster::PostInitializeComponents()
 	RightWingTrigger->OnComponentBeginOverlap.AddDynamic(this, &ACPCharacterMonster::RWingAttackHit);
 	TailTrigger->OnComponentBeginOverlap.AddDynamic(this, &ACPCharacterMonster::TailAttackHit);
 
+	DeadDelegate.AddUObject(this, &ACPCharacterMonster::Dead);
 
 	LeftHandTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	RightHandTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	LeftWingTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	RightWingTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	TailTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
 }
 
 EAttackReturnType ACPCharacterMonster::Attack(EAttackType InAttackType)
@@ -180,23 +198,23 @@ uint8 ACPCharacterMonster::GetMaxAttakType()
 	return 5;
 }
 
-void ACPCharacterMonster::AttackTriggerOn(AttackTriggerType InAttackTriggerType)
+void ACPCharacterMonster::AttackTriggerOn(EAttackTriggerType InAttackTriggerType)
 {
 	switch (InAttackTriggerType)
 	{
-	case AttackTriggerType::LHand:
+	case EAttackTriggerType::LHand:
 		LeftHandTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		break;
-	case AttackTriggerType::RHand:
+	case EAttackTriggerType::RHand:
 		RightHandTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		break;
-	case AttackTriggerType::LWing:
+	case EAttackTriggerType::LWing:
 		LeftWingTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		break;
-	case AttackTriggerType::RWing:
+	case EAttackTriggerType::RWing:
 		RightWingTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		break;
-	case AttackTriggerType::Tail:
+	case EAttackTriggerType::Tail:
 		TailTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 		break;
 	default:
@@ -204,27 +222,27 @@ void ACPCharacterMonster::AttackTriggerOn(AttackTriggerType InAttackTriggerType)
 	}
 }
 
-void ACPCharacterMonster::AttackTriggerOff(AttackTriggerType InAttackTriggerType)
+void ACPCharacterMonster::AttackTriggerOff(EAttackTriggerType InAttackTriggerType)
 {
 	switch (InAttackTriggerType)
 	{
-	case AttackTriggerType::LHand:
+	case EAttackTriggerType::LHand:
 		LeftHandTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		
 		break;
-	case AttackTriggerType::RHand:
+	case EAttackTriggerType::RHand:
 		RightHandTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		
 		break;
-	case AttackTriggerType::LWing:
+	case EAttackTriggerType::LWing:
 		LeftWingTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		
 		break;
-	case AttackTriggerType::RWing:
+	case EAttackTriggerType::RWing:
 		RightWingTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		
 		break;
-	case AttackTriggerType::Tail:
+	case EAttackTriggerType::Tail:
 		TailTrigger->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		break;
 	default:
@@ -234,27 +252,178 @@ void ACPCharacterMonster::AttackTriggerOff(AttackTriggerType InAttackTriggerType
 
 void ACPCharacterMonster::LHandAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("LHand"));
+	if (OtherActor == this)
+	{
+		return;
+	}
+
+	ICPBattleInterface* BattleActor = Cast<ICPBattleInterface>(OtherActor);
+
+	if (BattleActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("LHand"));
+
+		FVector AttackDir = OtherActor->GetActorLocation() - this->GetActorLocation();
+		FVector NAttackDir = AttackDir.GetSafeNormal();
+		float Knockback = 2000.0f;
+		FVector AttackReactionRange = NAttackDir * Knockback;
+
+		BattleActor->TakeDamage(10.0f, EHitReactionType::Knockback, AttackReactionRange);
+	}
 }
 
 void ACPCharacterMonster::RHandAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("RHand"));
+	if (OtherActor == this)
+	{
+		return;
+	}
+
+	ICPBattleInterface* BattleActor = Cast<ICPBattleInterface>(OtherActor);
+
+	if (BattleActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RHand"));
+
+		FVector AttackDir = OtherActor->GetActorLocation() - this->GetActorLocation();
+		FVector NAttackDir = AttackDir.GetSafeNormal();
+		float Knockback = 2000.0f;
+		FVector AttackReactionRange = NAttackDir * Knockback;
+
+		BattleActor->TakeDamage(10.0f, EHitReactionType::Knockback, AttackReactionRange);
+	}
 }
 
 void ACPCharacterMonster::LWingAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("LWing"));
+	if (OtherActor == this)
+	{
+		return;
+	}
+
+	ICPBattleInterface* BattleActor = Cast<ICPBattleInterface>(OtherActor);
+
+	if (BattleActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("LWing"));
+
+		FVector AttackDir = OtherActor->GetActorLocation() - this->GetActorLocation();
+		FVector NAttackDir = AttackDir.GetSafeNormal();
+		float Knockback = 2000.0f;
+		FVector AttackReactionRange = NAttackDir * Knockback;
+
+		BattleActor->TakeDamage(10.0f, EHitReactionType::Knockback, AttackReactionRange);
+	}
 }
 
 void ACPCharacterMonster::RWingAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("RWing"));
+	if (OtherActor == this)
+	{
+		return;
+	}
+
+	ICPBattleInterface* BattleActor = Cast<ICPBattleInterface>(OtherActor);
+
+	if (BattleActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("RWing"));
+
+		FVector AttackDir = OtherActor->GetActorLocation() - this->GetActorLocation() ;
+		FVector NAttackDir = AttackDir.GetSafeNormal();
+		float Knockback = 2000.0f;
+		FVector AttackReactionRange = NAttackDir * Knockback;
+
+		BattleActor->TakeDamage(10.0f, EHitReactionType::Knockback, AttackReactionRange);
+	}
 }
 
 void ACPCharacterMonster::TailAttackHit(UPrimitiveComponent* OverlappedComponent, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& SweepResult)
 {
-	UE_LOG(LogTemp, Warning, TEXT("Tail"));
+	if (OtherActor == this)
+	{
+		return;
+	}
+
+	ICPBattleInterface* BattleActor = Cast<ICPBattleInterface>(OtherActor);
+
+	if (BattleActor)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Tail"));
+
+		FVector AttackDir = OtherActor->GetActorLocation() - this->GetActorLocation() ;
+		FVector NAttackDir = AttackDir.GetSafeNormal();
+		float Knockback = 2000.0f;
+		FVector AttackReactionRange = NAttackDir * Knockback;
+
+		BattleActor->TakeDamage(10.0f, EHitReactionType::Knockback, AttackReactionRange);
+	}
+}
+
+void ACPCharacterMonster::TakeDamage(float Damage, EHitReactionType HitReactionType, FVector AttackDir)
+{
+	if (!bCanHit)
+	{
+		return;
+	}
+
+	if (StatComponent->GetCurrentHP() <= 0)
+	{
+		if (DeadDelegate.IsBound())
+		{
+			DeadDelegate.Broadcast();
+		}
+		return;
+	}
+
+	StatComponent->SetCurrentHP(-Damage);
+
+	bCanHit = false;
+
+	GetWorld()->GetTimerManager().SetTimer(HitDelayTimer, [this]() {
+		bCanHit = true;
+		}, 
+		HitDelay, false);
+}
+
+void ACPCharacterMonster::Attack(FName SocketName, float AttackRange)
+{
+	TArray<FOverlapResult> OutOverlapResults;
+
+	FVector AttackPos = GetMesh()->GetSocketLocation(SocketName);
+
+	FCollisionQueryParams CollisionParams(TEXT("AttackNotify"), false, this);
+
+	bool bIsHit = GetWorld()->OverlapMultiByChannel(OutOverlapResults, AttackPos, FQuat::Identity,
+		ECC_GameTraceChannel3, FCollisionShape::MakeSphere(AttackRange), CollisionParams);
+
+	if (bIsHit)
+	{
+		for (const FOverlapResult& Result : OutOverlapResults)
+		{
+			AActor* HitActor = Result.GetActor();
+
+			ICPBattleInterface* HitInterfaceActor = Cast<ICPBattleInterface>(HitActor);
+			if (HitInterfaceActor)
+			{
+				FVector AttackDir = HitActor->GetActorLocation() - this->GetActorLocation();
+				FVector NAttackDir = AttackDir.GetSafeNormal();
+				float Knockback = 2000.0f;
+				FVector AttackReactionRange = NAttackDir * Knockback;
+
+				HitInterfaceActor->TakeDamage(20.0f, EHitReactionType::Knockback, AttackReactionRange);
+			}
+		}
+	}
+
+	FColor Debug = bIsHit ? FColor::Green : FColor::Red;
+
+	DrawDebugSphere(GetWorld(), AttackPos, AttackRange, 16, Debug, false, 2.0f);
+}
+
+UCPStatComponent* ACPCharacterMonster::GetStatComponent()
+{
+	return nullptr;
 }
 
 uint8 ACPCharacterMonster::GetMinAttakType()
@@ -265,5 +434,28 @@ uint8 ACPCharacterMonster::GetMinAttakType()
 void ACPCharacterMonster::AttackEnd(UAnimMontage* Montage, bool IsProperlyEnded)
 {
 	GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
+}
+
+void ACPCharacterMonster::Dead()
+{
+	bCanHit = false;
+	GetMesh()->SetCollisionProfileName(TEXT("NoCollision"));
+	GetCapsuleComponent()->SetCollisionProfileName(TEXT("NoCollision"));
+	
+	UCPPlayerAnimInstance* AnimInstance = Cast<UCPPlayerAnimInstance>(GetMesh()->GetAnimInstance());
+	if (AnimInstance)
+	{
+		AnimInstance->SetDead(true);
+	}
+	GetMesh()->GetAnimInstance()->Montage_Stop(0.0f, AttackActionMontage);
+
+
+	AController* MonsterController = this->GetController();
+	ACPAIController* AIController = Cast<ACPAIController>(MonsterController);
+	if (AIController)
+	{
+		AIController->StopAI();
+		AIController->UnPossess();
+	}
 }
 
