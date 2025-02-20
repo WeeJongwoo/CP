@@ -40,6 +40,7 @@ void UBTService_CheckTargetInForward::TickNode(UBehaviorTreeComponent& OwnerComp
     if (DotProduct > FMath::Cos(FOVAngleRadian))
     {
         OwnerComp.GetBlackboardComponent()->SetValueAsBool(TEXT("bTargetInForward"), true);
+        UE_LOG(LogTemp, Warning, TEXT("Forward"));
         return;
     }
 

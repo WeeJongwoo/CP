@@ -25,12 +25,15 @@ void UCPAnimNotifyState_WeaponAttack::NotifyTick(USkeletalMeshComponent* MeshCom
 	FVector HitBoxHalfExtent = FVector(30.0f, 30.0f, 30.0f);
 
 	FCollisionQueryParams CollisionParam(TEXT("Weapon Attack"), false, MeshComp->GetOwner());
-
 	TArray<FHitResult> HitResults;
 	bool bIsHit = World->SweepMultiByChannel(HitResults, StartPos, EndPos, FQuat::Identity, ECC_GameTraceChannel3, FCollisionShape::MakeBox(HitBoxHalfExtent), CollisionParam);
 	if (bIsHit)
 	{
 		AActor* Owner = MeshComp->GetOwner();
+		if (!IsValid(Owner))
+		{
+			return;
+		}
 
 		float magnitude = (EndPos - StartPos).Length();
 		FVector Up = FVector::UpVector * magnitude;
@@ -41,11 +44,17 @@ void UCPAnimNotifyState_WeaponAttack::NotifyTick(USkeletalMeshComponent* MeshCom
 		{
 			AActor* HitActor = HitResult.GetActor();
 
-			ICPBattleInterface* HitCharacter = Cast<ICPBattleInterface>(HitActor);
-			ICPBattleInterface* BallteOwner = Cast<ICPBattleInterface>(Owner);
-			if (HitCharacter && BallteOwner)
+			if (!IsValid(HitActor))
 			{
-				UCPStatComponent* OwnerStatComp = BallteOwner->GetStatComponent();
+				return;
+			}
+
+			ICPBattleInterface* HitCharacter = Cast<ICPBattleInterface>(HitActor);
+			ICPBattleInterface* BattleOwner = Cast<ICPBattleInterface>(Owner);
+
+			if (HitCharacter && BattleOwner)
+			{
+				UCPStatComponent* OwnerStatComp = BattleOwner->GetStatComponent();
 
 				float ATK = OwnerStatComp->GetATK();
 					

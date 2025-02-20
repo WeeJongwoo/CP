@@ -17,7 +17,7 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 
 //Basic Val
 	APawn* AIPawn = OwnerComp.GetAIOwner()->GetPawn();
-	if (AIPawn == nullptr)
+	if (!IsValid(AIPawn))
 	{
 		UE_LOG(LogTemp, Warning, TEXT("Attack: Not Found AIPawn"));
 		return EBTNodeResult::Failed;
@@ -39,18 +39,19 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 	AIMonster->GetMonsterMovement()->SetMovementMode(EMovementMode::MOVE_None);
 	OwnerComp.GetBlackboardComponent()->SetValueAsBool(TEXT("bIsAttacking"), true);
 	UAnimMontage* AttackMontage = AIMonster->GetAttackMontage();
-	if (AttackMontage == nullptr)
+	if (!IsValid(AttackMontage))
 	{
 		return EBTNodeResult::Failed;
 	}
 	UAnimInstance* AnimInstance = AIMonster->GetMonsterAnimInstnce();
-	if (AnimInstance == nullptr)
+	if (!IsValid(AnimInstance))
 	{
 		return EBTNodeResult::Failed;
 	}
-	float AttackSpeed = AIMonster->GetAIAttackSpeed();
+	const float AttackSpeed = AIMonster->GetAIAttackSpeed();
 
-	FString AttackSection = TEXT("Attack") + FString::FromInt(AttackTypeInt);
+	FString AttackSection = FString::Printf(TEXT("Attack %d"), AttackTypeInt);
+		//TEXT("Attack") + FString::FromInt(AttackTypeInt);
 
 	UE_LOG(LogTemp, Log, TEXT("Attack Section: %s"), *AttackSection);
 
@@ -59,9 +60,16 @@ EBTNodeResult::Type UBTTask_AttackPlayer::ExecuteTask(UBehaviorTreeComponent& Ow
 
 //Set End Delegate
 	FOnMontageEnded AttackEndElegate;
-	AttackEndElegate.BindLambda([this, AIMonster, &OwnerComp](UAnimMontage* InAnimMontage, bool bInterrupted) {
+
+	TWeakObjectPtr<UBTTask_AttackPlayer> WeakThis = this;
+
+	AttackEndElegate.BindLambda([WeakThis, AIMonster, &OwnerComp](UAnimMontage* InAnimMontage, bool bInterrupted) {
+		if (!WeakThis.IsValid())
+		{
+			return;
+		}
 		AIMonster->GetMonsterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-		FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
+		WeakThis->FinishLatentTask(OwnerComp, EBTNodeResult::Succeeded);
 		OwnerComp.GetBlackboardComponent()->SetValueAsBool(TEXT("bIsAttacking"), false);
 	});
 	AnimInstance->Montage_SetEndDelegate(AttackEndElegate, AttackMontage);

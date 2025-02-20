@@ -65,7 +65,6 @@ ACPCharacterMonster::ACPCharacterMonster()
 	TailTrigger->SetBoxExtent(FVector(100.0f, 100.0f, 100.0f));
 	TailTrigger->SetCollisionProfileName(TEXT("EnemyAttackTrigger"));
 
-
 	LeftHandTrigger->SetHiddenInGame(false);
 	RightHandTrigger->SetHiddenInGame(false);
 	LeftWingTrigger->SetHiddenInGame(false);
