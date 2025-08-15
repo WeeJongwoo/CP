@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "Animation/CPAnimNotifyState_WeaponAttack.h"
@@ -68,7 +68,7 @@ void UCPAnimNotifyState_WeaponAttack::NotifyTick(USkeletalMeshComponent* MeshCom
 
 	FColor HitBoxColor = bIsHit ? FColor::Green : FColor::Red;
 	FVector Center = StartPos + ((EndPos - StartPos) / 2.0f);
-	DrawDebugBox(World, Center, HitBoxHalfExtent, HitBoxColor, false, 5.0f);
+	DrawDebugBox(World, Center, (HitBoxHalfExtent * 2), HitBoxColor, false, 5.0f);
 }
 
 void UCPAnimNotifyState_WeaponAttack::NotifyEnd(USkeletalMeshComponent* MeshComp, UAnimSequenceBase* Animation, const FAnimNotifyEventReference& EventReference)
