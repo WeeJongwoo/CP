@@ -7,6 +7,8 @@
 #include "Animation/AnimInstance.h"
 #include "Engine/SkeletalMeshSocket.h"
 
+DEFINE_LOG_CATEGORY(LogWeaponTrace);
+
 #if ENABLE_DRAW_DEBUG
 static TAutoConsoleVariable<int32> CVarShowWeaponTrace(
     TEXT("Game.Debug.ShowWeaponTrace"),
@@ -42,16 +44,80 @@ void UCPAnimNotifyState_AttackTrace::NotifyTick(USkeletalMeshComponent* MeshComp
 
     UAnimSequence* AnimSequence = Cast<UAnimSequence>(Animation);
     if (!AnimSequence)
+    {
+        UAnimMontage* AnimMontage = Cast<UAnimMontage>(Animation);
+        if (AnimMontage)
+        {
+            // 몽타주의 첫 번째 슬롯에서 AnimSequence 추출
+            if (AnimMontage->SlotAnimTracks.Num() > 0 &&
+                AnimMontage->SlotAnimTracks[0].AnimTrack.AnimSegments.Num() > 0)
+            {
+                AnimSequence = Cast<UAnimSequence>(
+                    AnimMontage->SlotAnimTracks[0].AnimTrack.AnimSegments[0].GetAnimReference()
+                );
+            }
+
+        }
+    }
+
+    if (!AnimSequence)
+    {
+        // AnimSequence를 찾을 수 없으면 기본 동작 (직선 보간)
+        UE_LOG(LogWeaponTrace, Warning, TEXT("Could not get AnimSequence from Animation: %s. Using linear interpolation."),
+            *Animation->GetName());
+
+        FVector CurrentStartLocation = MeshComp->GetSocketLocation(StartSocketName);
+        FVector CurrentEndLocation = MeshComp->GetSocketLocation(EndSocketName);
+
+        FVector* PrevStart = PrevStartLocations.Find(MeshComp);
+        FVector* PrevEnd = PrevEndLocations.Find(MeshComp);
+
+        if (PrevStart && PrevEnd)
+        {
+            PerformLinearSweepTrace(MeshComp, *PrevStart, CurrentStartLocation,
+                *PrevEnd, CurrentEndLocation, SamplesPerFrame);
+        }
+
+        PrevStartLocations[MeshComp] = CurrentStartLocation;
+        PrevEndLocations[MeshComp] = CurrentEndLocation;
         return;
+    }
 
     // ========================================
     // 1단계: 현재 애니메이션 프레임 번호 계산
     // ========================================
-    float CurrentTime = MeshComp->GetPosition();
+    //float CurrentTime = MeshComp->GetPosition();
+    float CurrentTime = 0.0f;
+    UAnimInstance* AnimInstance = MeshComp->GetAnimInstance();
+
+    if (AnimInstance)
+    {
+        // Montage가 재생 중인지 확인 (특정 슬롯 지정)
+        UAnimMontage* CurrentMontage = Cast<UAnimMontage>(Animation);
+
+        if (CurrentMontage && AnimInstance->Montage_IsPlaying(CurrentMontage))
+        {
+            // 현재 몽타주의 정확한 위치 가져오기
+            CurrentTime = AnimInstance->Montage_GetPosition(CurrentMontage);
+
+            UE_LOG(LogWeaponTrace, Verbose, TEXT("Montage Time: %.3f"), CurrentTime);
+        }
+        else
+        {
+            // Montage가 안 재생 중이면 일반 애니메이션 시간
+            CurrentTime = MeshComp->GetPosition();
+        }
+    }
+    else
+    {
+        // Fallback: Component에서 직접 가져오기
+        CurrentTime = MeshComp->GetPosition();
+    }
 
     // UE 5.4: GetSamplingFrameRate() 사용
     float FrameRate = AnimSequence->GetSamplingFrameRate().AsDecimal();
     int32 CurrentFrame = FMath::FloorToInt(CurrentTime * FrameRate);
+
 
     // ========================================
     // 2단계: 같은 프레임이면 스킵 (중복 방지)
@@ -260,7 +326,7 @@ void UCPAnimNotifyState_AttackTrace::PerformBladeSurfaceSweep(USkeletalMeshCompo
 #if ENABLE_DRAW_DEBUG
     if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
     {
-        DrawDebugLine(World, CurrentStart, CurrentEnd, FColor::Green, false, 0.5f, 0, 2.0f);
+        DrawDebugLine(World, CurrentStart, CurrentEnd, FColor::Green, false, 2.0f, 0, 2.0f);
     }
 #endif
 
@@ -273,7 +339,7 @@ void UCPAnimNotifyState_AttackTrace::PerformBladeSurfaceSweep(USkeletalMeshCompo
 #if ENABLE_DRAW_DEBUG
     if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
     {
-        DrawDebugLine(World, PrevStart, PrevEnd, FColor::Yellow, false, 0.5f, 0, 2.0f);
+        DrawDebugLine(World, PrevStart, PrevEnd, FColor::Yellow, false, 2.0f, 0, 2.0f);
     }
 #endif
 
@@ -286,7 +352,7 @@ void UCPAnimNotifyState_AttackTrace::PerformBladeSurfaceSweep(USkeletalMeshCompo
 #if ENABLE_DRAW_DEBUG
     if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
     {
-        DrawDebugLine(World, PrevStart, CurrentEnd, FColor::Red, false, 0.5f, 0, 1.5f);
+        DrawDebugLine(World, PrevStart, CurrentEnd, FColor::Red, false, 2.0f, 0, 1.5f);
     }
 #endif
 
@@ -299,7 +365,33 @@ void UCPAnimNotifyState_AttackTrace::PerformBladeSurfaceSweep(USkeletalMeshCompo
 #if ENABLE_DRAW_DEBUG
     if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
     {
-        DrawDebugLine(World, PrevEnd, CurrentStart, FColor::Red, false, 0.5f, 0, 1.5f);
+        DrawDebugLine(World, PrevEnd, CurrentStart, FColor::Red, false, 2.0f, 0, 1.5f);
+    }
+#endif
+
+    // 5. 시작점  (PrevStart → CurrentStart)
+    HitResults.Reset();
+    PerformSingleTrace(World, PrevStart, CurrentStart, QueryParams, HitResults);
+    ProcessHits(MeshComp, HitResults);
+
+    // 디버그 시각화
+#if ENABLE_DRAW_DEBUG
+    if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
+    {
+        DrawDebugLine(World, PrevStart, CurrentStart, FColor::Red, false, 2.0f, 0, 1.5f);
+    }
+#endif
+
+    // 6. 끝점 (PrevEnd → CurrentEnd)
+    HitResults.Reset();
+    PerformSingleTrace(World, PrevEnd, CurrentEnd, QueryParams, HitResults);
+    ProcessHits(MeshComp, HitResults);
+
+    // 디버그 시각화
+#if ENABLE_DRAW_DEBUG
+    if (bShowDebugTrace || CVarShowWeaponTrace.GetValueOnGameThread() > 0)
+    {
+        DrawDebugLine(World, PrevEnd, CurrentEnd, FColor::Red, false, 2.0f, 0, 1.5f);
     }
 #endif
 }
@@ -320,7 +412,7 @@ void UCPAnimNotifyState_AttackTrace::PerformSingleTrace(UWorld* World, const FVe
             OutHits,
             Start,
             End,
-            ECC_Pawn,
+            ECC_GameTraceChannel3,
             QueryParams
         );
     }
@@ -335,7 +427,7 @@ void UCPAnimNotifyState_AttackTrace::PerformSingleTrace(UWorld* World, const FVe
             Start,
             End,
             FQuat::Identity,
-            ECC_Pawn,
+            ECC_GameTraceChannel3,
             SphereShape,
             QueryParams
         );
@@ -356,7 +448,7 @@ void UCPAnimNotifyState_AttackTrace::PerformSingleTrace(UWorld* World, const FVe
             Start,
             End,
             Rotation,
-            ECC_Pawn,
+            ECC_GameTraceChannel3,
             BoxShape,
             QueryParams
         );

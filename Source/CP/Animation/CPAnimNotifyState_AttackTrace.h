@@ -7,6 +7,8 @@
 #include "Animation/AnimSequence.h"
 #include "CPAnimNotifyState_AttackTrace.generated.h"
 
+DECLARE_LOG_CATEGORY_EXTERN(LogWeaponTrace, Log, All);
+
 // 충돌 검사 타입
 UENUM(BlueprintType)
 enum class EWeaponTraceType : uint8
