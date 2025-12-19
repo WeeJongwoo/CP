@@ -7,7 +7,7 @@
 #include "Animation/AnimInstance.h"
 #include "Engine/SkeletalMeshSocket.h"
 
-#if !UE_BUILD_SHIPPING
+#if ENABLE_DRAW_DEBUG
 static TAutoConsoleVariable<int32> CVarShowWeaponTrace(
     TEXT("Game.Debug.ShowWeaponTrace"),
     0,
@@ -64,16 +64,27 @@ void UCPAnimNotifyState_AttackTrace::NotifyTick(USkeletalMeshComponent* MeshComp
     }
 
     // ========================================
-    // 3단계: 건너뛴 프레임 수 계산
+    // 3단계: 건너뛴 프레임 수 계산 (루프/리셋 감지 포함)
     // ========================================
     int32 SkippedFrames = 1;
     float PrevTime = CurrentTime;
 
     if (LastFrame && *LastFrame >= 0)
     {
-        // 현재 프레임 - 이전 프레임 = 건너뛴 프레임 수
-        SkippedFrames = FMath::Max(1, CurrentFrame - *LastFrame);
-        PrevTime = (*LastFrame) / FrameRate;
+        // 애니메이션이 루프되거나 리셋된 경우 감지
+        if (CurrentFrame < *LastFrame)
+        {
+            // 루프/리셋 감지: 이전 프레임 정보 무시하고 새로 시작
+            SkippedFrames = 1;
+            PrevTime = CurrentTime;
+            UE_LOG(LogTemp, Verbose, TEXT("Animation loop/reset detected in AttackTrace"));
+        }
+        else
+        {
+            // 현재 프레임 - 이전 프레임 = 건너뛴 프레임 수
+            SkippedFrames = FMath::Max(1, CurrentFrame - *LastFrame);
+            PrevTime = (*LastFrame) / FrameRate;
+        }
     }
 
     // ========================================
@@ -359,15 +370,27 @@ bool UCPAnimNotifyState_AttackTrace::GetSocketLocationAtTime(USkeletalMeshCompon
     if (!MeshComp || !AnimSequence)
         return false;
 
+    UAnimInstance* AnimInstance = MeshComp->GetAnimInstance();
+    if (!AnimInstance)
+        return false;
+
+    // 애니메이션 시간 범위 검증
+    float AnimLength = AnimSequence->GetPlayLength();
+    if (Time < 0.0f || Time > AnimLength)
+    {
+        // 범위를 벗어난 경우 클램핑
+        Time = FMath::Clamp(Time, 0.0f, AnimLength);
+    }
+
     // UE 5.4: 임시 포즈 생성
     FMemMark Mark(FMemStack::Get());
 
     // 포즈 데이터 준비
     FCompactPose TempPose;
-    TempPose.SetBoneContainer(&MeshComp->GetAnimInstance()->GetRequiredBones());
+    TempPose.SetBoneContainer(&AnimInstance->GetRequiredBones());
 
     FBlendedCurve TempCurve;
-    TempCurve.InitFrom(MeshComp->GetAnimInstance()->GetRequiredBones());
+    TempCurve.InitFrom(AnimInstance->GetRequiredBones());
 
     UE::Anim::FStackAttributeContainer TempAttributes;
 
@@ -396,7 +419,7 @@ bool UCPAnimNotifyState_AttackTrace::GetSocketLocationAtTime(USkeletalMeshCompon
             return false;
     }
 
-    FCompactPoseBoneIndex CompactBoneIndex = MeshComp->GetAnimInstance()->GetRequiredBones().MakeCompactPoseIndex(FMeshPoseBoneIndex(BoneIndex));
+    FCompactPoseBoneIndex CompactBoneIndex = AnimInstance->GetRequiredBones().MakeCompactPoseIndex(FMeshPoseBoneIndex(BoneIndex));
 
     if (!CompactBoneIndex.IsValid())
         return false;
